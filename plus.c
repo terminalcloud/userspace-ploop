@@ -29,7 +29,8 @@ static int p_memalign(void **memptr, size_t size)
 	return ret;
 }
 
-static int open_delta(struct plus_image *img, const char *name) {
+static int open_delta(struct plus_image *img, const char *name)
+{
 	int level = img->level + 1;
 	int fd = -1;
 
@@ -188,7 +189,8 @@ err:
 	return -1;
 }
 
-static int close_deltas(struct plus_image *img) {
+static int close_deltas(struct plus_image *img)
+{
 	int l = img->level;
 	do {
 		close(img->fds[l]);
@@ -197,7 +199,8 @@ static int close_deltas(struct plus_image *img) {
 	return 0;
 }
 
-struct plus_image *plus_open(int count, char **deltas) {
+struct plus_image *plus_open(int count, char **deltas)
+{
 	// Allocate img
 	struct plus_image *img = calloc(1, sizeof(struct plus_image));
 	if (!img)
@@ -237,7 +240,8 @@ err:
 	return NULL;
 }
 
-int plus_close(struct plus_image *img) {
+int plus_close(struct plus_image *img)
+{
 	if (!img)
 		return 0;
 
