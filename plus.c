@@ -301,9 +301,12 @@ ssize_t plus_read(struct plus_image *img, size_t size, off_t offset, void *buf) 
 			ssize_t r = pread(img->fds[lvl], buf + got, len, pos);
 			printf("%zd (%m)\n", r);
 			if (r != len) {
-				fprintf(stderr, "%s: error in pread(%d, %p, %d, %zu): %m\n",
-						__func__, img->fds[lvl], buf + got, len, pos);
-				return r;
+				fprintf(stderr, "%s: error in pread(%d, %p, %d, %zu) = %zd: %m\n",
+						__func__, img->fds[lvl], buf + got, len, pos, r);
+				if (r < 0) // pread set errno
+					return -errno;
+				else // partial read, return EIO
+					return -EIO;
 			}
 		}
 		else {
