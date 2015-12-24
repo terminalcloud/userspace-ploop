@@ -260,26 +260,37 @@ int plus_close(struct plus_image *img)
 
 #define MIN(a, b)	((a) < (b) ? (a) : (b))
 
-ssize_t plus_read(struct plus_image *img, size_t size, off_t offset, void *buf) {
+// Sanity checks common for read and write
+static inline int sanity_checks(const char *func,
+		struct plus_image *img, size_t size, off_t offset, void *buf)
+{
 	if (!img)
 		return -EBADF;
 
-	u32 cluster = img->clusterSize;
-	size_t got = 0; // How much we have read so far
-
-	// Is it past EOF?
-	if (((size + offset) / cluster) > img->bdevSize) {
-		fprintf(stderr, "%s: read past EOF\n", __func__);
-		return -EINVAL;
-	}
-
 	// Is everything page-aligned?
 	if (((size_t)buf % PAGE_SIZE) || (size % PAGE_SIZE) || (offset % PAGE_SIZE)) {
-		fprintf(stderr, "%s: buf, size, or offset unaligned\n", __func__);
+		fprintf(stderr, "%s: buf, size, or offset unaligned\n", func);
 		return -EINVAL;
 	}
 
-	printf("READ offset=%5zd size=%5zd\n", offset, size);
+	// Is it past EOF?
+	if (((size + offset) / img->clusterSize) > img->bdevSize) {
+		fprintf(stderr, "%s: past EOF\n", func);
+		return -EINVAL;
+	}
+
+	printf("%s offset=%5zd size=%5zd\n", func, offset, size);
+	return 0;
+}
+
+ssize_t plus_read(struct plus_image *img, size_t size, off_t offset, void *buf)
+{
+	int ret = sanity_checks(__func__, img, size, offset, buf);
+	if (ret)
+		return ret;
+
+	u32 cluster = img->clusterSize;
+	size_t got = 0; // How much we have read so far
 
 	while (got < size) {
 		// Cluster number, and offset within it
