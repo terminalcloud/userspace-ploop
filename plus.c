@@ -283,6 +283,21 @@ static inline int sanity_checks(const char *func,
 	return 0;
 }
 
+static int read_block(int fd, void *buf, size_t len, off_t pos)
+{
+	printf("pread(%d, %p, %d, %zu) = ", fd, buf, len, pos);
+	ssize_t r = pread(fd, buf, len, pos);
+	printf("%zd (%m)\n", r);
+	if (r == len)
+		return 0;
+	printf(stderr, "Error in pread(%d, %p, %d, %zu) = %zd: %m\n",
+			fd, buf, len, pos, r);
+	if (r < 0) // pread set errno
+		return -errno;
+	else // partial read, return EIO
+		return -EIO;
+}
+
 ssize_t plus_read(struct plus_image *img, size_t size, off_t offset, void *buf)
 {
 	int ret = sanity_checks(__func__, img, size, offset, buf);
@@ -304,21 +319,11 @@ ssize_t plus_read(struct plus_image *img, size_t size, off_t offset, void *buf)
 			idx, lvl, blk, off, len);
 		if (blk) {
 			// do actual read
-
 			// offset in the delta file
 			off_t pos = blk * cluster + off;
-			printf("pread(%d, %p, %d, %zu) = ",
-					img->fds[lvl], buf + got, len, pos);
-			ssize_t r = pread(img->fds[lvl], buf + got, len, pos);
-			printf("%zd (%m)\n", r);
-			if (r != len) {
-				fprintf(stderr, "%s: error in pread(%d, %p, %d, %zu) = %zd: %m\n",
-						__func__, img->fds[lvl], buf + got, len, pos, r);
-				if (r < 0) // pread set errno
-					return -errno;
-				else // partial read, return EIO
-					return -EIO;
-			}
+			int ret = read_block(img->fds[lvl], buf + got, len, pos);
+			if (ret)
+				return ret;
 		}
 		else {
 			// just zero out buf
