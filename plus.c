@@ -199,7 +199,7 @@ static int close_deltas(struct plus_image *img)
 	return 0;
 }
 
-struct plus_image *plus_open(int count, char **deltas)
+struct plus_image *plus_open(int count, char **deltas, int mode)
 {
 	// Allocate img
 	struct plus_image *img = calloc(1, sizeof(struct plus_image));
@@ -208,7 +208,7 @@ struct plus_image *plus_open(int count, char **deltas)
 
 	// Initialize it
 	img->level = -1;
-	img->ro	= 1;
+	img->mode = mode;
 	img->max_levels = count;
 	img->fds = calloc(count, sizeof(*img->fds));
 	if (!img->fds)

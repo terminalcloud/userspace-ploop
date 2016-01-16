@@ -11,7 +11,7 @@ typedef uint8_t		u8;
 struct plus_image {
 	int level;	// current level
 	int max_levels;	// total levels
-	int ro;		// non-zero for read only access
+	int mode;	// O_RDONLY, O_WRONLY, or O_RDWR
 	u32 clusterSize;// in bytes
 
 	// This is for top (last opened) image
@@ -30,7 +30,7 @@ struct plus_image {
 	void *buf;
 };
 
-struct plus_image *plus_open(int count, char **deltas);
+struct plus_image *plus_open(int count, char **deltas, int mode);
 int plus_close(struct plus_image *img);
 ssize_t plus_read(struct plus_image *img, size_t size, off_t offset, void *buf);
 ssize_t plus_write(struct plus_image *img, size_t size, off_t offset, void *buf);
