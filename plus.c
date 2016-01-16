@@ -285,12 +285,12 @@ static inline int sanity_checks(const char *func,
 
 static int read_block(int fd, void *buf, size_t len, off_t pos)
 {
-	printf("pread(%d, %p, %d, %zu) = ", fd, buf, len, pos);
+	printf("pread(%d, %p, %zd, %zu) = ", fd, buf, len, pos);
 	ssize_t r = pread(fd, buf, len, pos);
 	printf("%zd (%m)\n", r);
-	if (r == len)
+	if ((size_t)r == len)
 		return 0;
-	printf(stderr, "Error in pread(%d, %p, %d, %zu) = %zd: %m\n",
+	fprintf(stderr, "Error in pread(%d, %p, %zd, %zu) = %zd: %m\n",
 			fd, buf, len, pos, r);
 	if (r < 0) // pread set errno
 		return -errno;
