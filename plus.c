@@ -6,6 +6,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/mman.h>
+#include <stdbool.h>
 
 #include <linux/types.h>
 
@@ -199,6 +201,17 @@ static int close_deltas(struct plus_image *img)
 	return 0;
 }
 
+static void mark_in_use(void *ptr, bool inuse)
+{
+	// Mark the image as either dirty or clean
+	struct ploop_pvd_header *pvd = (struct ploop_pvd_header *)ptr;
+	pvd->m_DiskInUse = inuse ? SIGNATURE_DISK_IN_USE : 0;
+	// FIXME do we need msync?
+	if (msync(ptr, PAGE_SIZE, MS_SYNC)) {
+		fprintf(stderr, "%s: msync: %m\n", __func__);
+	}
+}
+
 struct plus_image *plus_open(int count, char **deltas, int mode)
 {
 	// Allocate img
@@ -222,6 +235,22 @@ struct plus_image *plus_open(int count, char **deltas, int mode)
 		if (open_delta(img, *deltas++) < 0)
 			goto err;
 
+	// mmap top delta BAT table for efficient writes
+	if (mode != O_RDONLY) {
+		int top_level = img->level;
+		int wfd = img->fds[top_level];
+		size_t len = img->batSize * img->clusterSize;
+		const int prot = PROT_READ | PROT_WRITE;
+
+		img->wbat = mmap(NULL, len, prot, MAP_SHARED, wfd, 0);
+		if (img->wbat == MAP_FAILED) {
+			fprintf(stderr, "mmap failed: %m\n");
+			goto err;
+		}
+		// Mark the image as dirty
+		mark_in_use(img->wbat, true);
+	}
+
 	printf("Combined map follows:\n");
 	for (u32 idx = 0; idx < img->bdevSize; idx++) {
 		if (img->map_blk[idx])
@@ -244,6 +273,16 @@ int plus_close(struct plus_image *img)
 {
 	if (!img)
 		return 0;
+
+	if (img->mode != O_RDONLY) {
+		// Mark the image as clean
+		mark_in_use(img->wbat, false);
+		// unmap the writeable BAT
+		size_t len = img->batSize * img->clusterSize;
+		if (munmap(img->wbat, len)) {
+			fprintf(stderr, "%s: error in munmap: %m\n", __func__);
+		}
+	}
 
 	free(img->buf);
 	close_deltas(img);

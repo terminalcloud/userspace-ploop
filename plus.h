@@ -18,6 +18,7 @@ struct plus_image {
 	u32 batSize;	// size of BAT maps, in cluster blocks
 	u32 bdevSize;	// size of block device, in cluster blocks
 	u32 allocSize;	// size of allocated image file
+	void *wbat;	// mmap()'ed BAT table (for writing)
 
 	// per-cluster_block mappings, indexed by cluster number
 	u8  *map_lvl;	// block -> level mapping
