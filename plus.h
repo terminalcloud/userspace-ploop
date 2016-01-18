@@ -19,6 +19,7 @@ struct plus_image {
 	u32 bdevSize;	// size of block device, in cluster blocks
 	u32 allocSize;	// size of allocated image file
 	void *wbat;	// mmap()'ed metadata (for writing)
+	u32 max_idx;	// max number of entries in BAT table
 
 	// per-cluster_block mappings, indexed by cluster number
 	u8  *map_lvl;	// block -> level mapping

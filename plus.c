@@ -269,6 +269,8 @@ struct plus_image *plus_open(int count, char **deltas, int mode)
 		mark_in_use(img->wbat, true);
 	}
 
+	img->max_idx = (img->batSize * img->clusterSize / 4) - HDR_SIZE_32;
+
 	printf("Combined map follows:\n");
 	for (u32 idx = 0; idx < img->bdevSize; idx++) {
 		if (img->map_blk[idx]) {
@@ -277,9 +279,9 @@ struct plus_image *plus_open(int count, char **deltas, int mode)
 					img->map_blk[idx]);
 		}
 	}
-	printf("levels: %2d cluster: %5d bat: %5d bdev: %5d alloc: %5d\n\n",
+	printf("levels: %2d cluster: %5d bat: %5d (max idx: %5d) bdev: %5d alloc: %5d\n\n",
 			img->max_levels, img->clusterSize, img->batSize,
-			img->bdevSize, img->allocSize);
+			img->max_idx, img->bdevSize, img->allocSize);
 
 	return img;
 
@@ -334,9 +336,20 @@ static inline int sanity_checks(const char *func,
 	}
 
 	// Is it past EOF?
-	if (((size + offset) / img->clusterSize) > img->bdevSize) {
-		fprintf(stderr, "%s: past EOF\n", func);
+	u32 idx = (size + offset) / img->clusterSize;
+	if (idx > img->bdevSize) {
+		fprintf(stderr, "%s: offset=%zd size=%zd past EOF\n",
+				func, size, offset);
 		return -EINVAL;
+	}
+
+	// is is past BAT table? FIXME: can it ever happen?
+	if (idx >= img->max_idx) {
+		// TODO: implement BAT growing on writes?
+		fprintf(stderr, "%s: offset=%zd size=%zd past BAT\n"
+				"(TODO: implement BAT growing)\n",
+				func, size, offset);
+		return -E2BIG;
 	}
 
 	printf("%s offset=%5zd size=%5zd\n", func, offset, size);
