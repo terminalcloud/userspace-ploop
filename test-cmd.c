@@ -96,9 +96,14 @@ int main(int argc, char **argv)
 				goto out;
 			}
 
-			int fd = open(file, O_WRONLY|O_CREAT|O_EXCL, 0600);
+			int fd = open(file, O_RDWR|O_CREAT|O_EXCL, 0600);
 			if (fd < 0) {
 				fprintf(stderr, "Can't open %s for writing: %m\n", file);
+				ret = 1;
+				goto out;
+			}
+			if (ftruncate(fd, size)) {
+				fprintf(stderr, "Can't truncate %s to %zd: %m\n", file, size);
 				ret = 1;
 				goto out;
 			}
