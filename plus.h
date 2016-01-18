@@ -18,7 +18,7 @@ struct plus_image {
 	u32 batSize;	// size of BAT maps, in cluster blocks
 	u32 bdevSize;	// size of block device, in cluster blocks
 	u32 allocSize;	// size of allocated image file
-	void *wbat;	// mmap()'ed BAT table (for writing)
+	void *wbat;	// mmap()'ed metadata (for writing)
 
 	// per-cluster_block mappings, indexed by cluster number
 	u8  *map_lvl;	// block -> level mapping
@@ -27,8 +27,7 @@ struct plus_image {
 	// per-level arrays, size is max_levels
 	int *fds;	// opened delta file descriptors
 
-	// page-aligned cluster size buffer for reading
-	void *buf;
+	void *buf;	// page-aligned cluster size buffer
 };
 
 struct plus_image *plus_open(int count, char **deltas, int mode);
