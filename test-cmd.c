@@ -35,13 +35,14 @@ int main(int argc, char **argv)
 
 	if (argc != 1) {
 		fprintf(stderr, "Error: invalid number of arguments\n");
-		usage(1);
+		usage(2);
 	}
 
-	FILE *f = fopen(argv[0], "r");
+	const char *cmdfile = argv[0];
+	FILE *f = fopen(cmdfile, "r");
 	if (!f) {
-		fprintf(stderr, "Can't open %s: %m\n", argv[0]);
-		exit(1);
+		fprintf(stderr, "Can't open %s: %m\n", cmdfile);
+		exit(2);
 	}
 
 	char cmd[1024];
