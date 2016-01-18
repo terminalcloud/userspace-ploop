@@ -25,8 +25,9 @@ static int p_memalign(void **memptr, size_t size)
 	int ret;
 
 	ret = posix_memalign(memptr, PAGE_SIZE, size);
-	if (ret)
+	if (ret) {
 		perror("Memory allocation failed, posix_memalign");
+	}
 
 	return ret;
 }
@@ -82,8 +83,9 @@ static int open_delta(struct plus_image *img, const char *name)
 		if (clusterSize != DEF_CLUSTER) {
 			// realloc buf
 			free(img->buf);
-			if (p_memalign(img->buf, clusterSize))
+			if (p_memalign(img->buf, clusterSize)) {
 				goto err;
+			}
 		}
 		img->clusterSize = clusterSize;
 	} else {
@@ -149,8 +151,9 @@ static int open_delta(struct plus_image *img, const char *name)
 		// fill in the maps
 		u32 *bat = img->buf;
 		for (u32 i = i0; i < clusterSize / 4; i++, idx++) {
-			if (bat[i] == 0)
+			if (bat[i] == 0) {
 				continue;
+			}
 			// sanity checks
 			if (idx > bdevSize) { // and non-zero value
 				fprintf(stderr, "Error: BAT entry beyond "
@@ -185,8 +188,9 @@ static int open_delta(struct plus_image *img, const char *name)
 	return 0;
 
 err:
-	if (fd >= 0)
+	if (fd >= 0) {
 		close(fd);
+	}
 
 	return -1;
 }
@@ -216,24 +220,29 @@ struct plus_image *plus_open(int count, char **deltas, int mode)
 {
 	// Allocate img
 	struct plus_image *img = calloc(1, sizeof(struct plus_image));
-	if (!img)
+	if (!img) {
 		return NULL;
+	}
 
 	// Initialize it
 	img->level = -1;
 	img->mode = mode;
 	img->max_levels = count;
 	img->fds = calloc(count, sizeof(*img->fds));
-	if (!img->fds)
+	if (!img->fds) {
 		goto err;
+	}
 
 	// initial buffer
-	if (p_memalign(&img->buf, DEF_CLUSTER))
+	if (p_memalign(&img->buf, DEF_CLUSTER)) {
 		goto err;
+	}
 
-	while (count--)
-		if (open_delta(img, *deltas++) < 0)
+	while (count--) {
+		if (open_delta(img, *deltas++) < 0) {
 			goto err;
+		}
+	}
 
 	// mmap top delta BAT table for efficient writes
 	if (mode != O_RDONLY) {
@@ -253,10 +262,11 @@ struct plus_image *plus_open(int count, char **deltas, int mode)
 
 	printf("Combined map follows:\n");
 	for (u32 idx = 0; idx < img->bdevSize; idx++) {
-		if (img->map_blk[idx])
+		if (img->map_blk[idx]) {
 			printf("%5u -> %2d,%5u\n", idx,
 					img->map_lvl[idx],
 					img->map_blk[idx]);
+		}
 	}
 	printf("levels: %2d cluster: %5d bat: %5d bdev: %5d alloc: %5d\n\n",
 			img->max_levels, img->clusterSize, img->batSize,
@@ -271,8 +281,9 @@ err:
 
 int plus_close(struct plus_image *img)
 {
-	if (!img)
+	if (!img) {
 		return 0;
+	}
 
 	if (img->mode != O_RDONLY) {
 		// Mark the image as clean
@@ -303,8 +314,9 @@ int plus_close(struct plus_image *img)
 static inline int sanity_checks(const char *func,
 		struct plus_image *img, size_t size, off_t offset, void *buf)
 {
-	if (!img)
+	if (!img) {
 		return -EBADF;
+	}
 
 	// Is everything page-aligned?
 	if (((size_t)buf % PAGE_SIZE) || (size % PAGE_SIZE) || (offset % PAGE_SIZE)) {
@@ -327,21 +339,24 @@ static int read_block(int fd, void *buf, size_t len, off_t pos)
 	printf("pread(%d, %p, %zd, %zu) = ", fd, buf, len, pos);
 	ssize_t r = pread(fd, buf, len, pos);
 	printf("%zd (%m)\n", r);
-	if ((size_t)r == len)
+	if ((size_t)r == len) {
 		return 0;
+	}
 	fprintf(stderr, "Error in pread(%d, %p, %zd, %zu) = %zd: %m\n",
 			fd, buf, len, pos, r);
-	if (r < 0) // pread set errno
+	if (r < 0) { // pread set errno
 		return -errno;
-	else // partial read, return EIO
+	} else { // partial read, return EIO
 		return -EIO;
+	}
 }
 
 ssize_t plus_read(struct plus_image *img, size_t size, off_t offset, void *buf)
 {
 	int ret = sanity_checks(__func__, img, size, offset, buf);
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	u32 cluster = img->clusterSize;
 	size_t got = 0; // How much we have read so far
@@ -361,8 +376,9 @@ ssize_t plus_read(struct plus_image *img, size_t size, off_t offset, void *buf)
 			// offset in the delta file
 			off_t pos = blk * cluster + off;
 			int ret = read_block(img->fds[lvl], buf + got, len, pos);
-			if (ret)
+			if (ret) {
 				return ret;
+			}
 		}
 		else {
 			// just zero out buf
