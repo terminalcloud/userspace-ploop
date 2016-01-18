@@ -115,6 +115,8 @@ static int open_delta(struct plus_image *img, const char *name, int rw)
 
 	// Allocated size, i.e. max (last) addressable cluster in the image
 	img->allocSize = ((st.st_size + clusterSize - 1) / clusterSize);
+	// BAT table size
+	img->batSize = batSize;
 
 	printf("== img %s ==\n", name);
 	printf("level: %2d cluster: %5d bat: %5d bdev: %5d alloc: %5d\n\n",
