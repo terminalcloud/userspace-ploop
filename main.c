@@ -28,7 +28,7 @@ int main(int argc, char **argv)
 		usage(1);
 	}
 
-	img = plus_open(argc, argv);
+	img = plus_open(argc, argv, O_RDONLY);
 	if (img == NULL)
 		return 1;
 
