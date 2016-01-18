@@ -266,6 +266,7 @@ struct plus_image *plus_open(int count, char **deltas, int mode)
 		img->wbat = mmap(NULL, len, prot, MAP_SHARED, wfd, 0);
 		if (img->wbat == MAP_FAILED) {
 			fprintf(stderr, "mmap failed: %m\n");
+			img->wbat = NULL;
 			goto err;
 		}
 		// Mark the image as dirty
@@ -299,7 +300,7 @@ int plus_close(struct plus_image *img)
 		return 0;
 	}
 
-	if (img->mode != O_RDONLY) {
+	if (img->mode != O_RDONLY && img->wbat != NULL) {
 		// Mark the image as clean
 		mark_in_use(img->wbat, false);
 		// unmap the writeable BAT
