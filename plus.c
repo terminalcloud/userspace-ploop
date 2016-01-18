@@ -35,7 +35,7 @@ static int p_memalign(void **memptr, size_t size)
 	return ret;
 }
 
-static int open_delta(struct plus_image *img, const char *name)
+static int open_delta(struct plus_image *img, const char *name, int rw)
 {
 	int level = img->level + 1;
 	int fd = -1;
@@ -45,9 +45,9 @@ static int open_delta(struct plus_image *img, const char *name)
 		return -1;
 	}
 
-	fd = open(name, O_RDONLY|O_DIRECT);
+	fd = open(name, (rw ? O_RDWR : O_RDONLY)|O_DIRECT);
 	if (fd < 0) {
-		perror("open");
+		fprintf(stderr, "Can't open \"%s\": %m\n", name);
 		return -1;
 	}
 
@@ -248,7 +248,8 @@ struct plus_image *plus_open(int count, char **deltas, int mode)
 	}
 
 	while (count--) {
-		if (open_delta(img, *deltas++) < 0) {
+		int rw = count == 0 && mode != O_RDONLY;
+		if (open_delta(img, *deltas++, rw) < 0) {
 			goto err;
 		}
 	}
