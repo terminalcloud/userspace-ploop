@@ -412,3 +412,141 @@ ssize_t plus_read(struct plus_image *img, size_t size, off_t offset, void *buf)
 
 	return got;
 }
+
+static int write_bat_entry(struct plus_image *img, u32 idx, u32 cluster)
+{
+	u32 *bat = (u32*)img->wbat + HDR_SIZE_32;
+	if (bat[idx] != 0) {
+		fprintf(stderr, "%s: unexpected BAT entry %d -> %d\n",
+				__func__, idx, bat[idx]);
+		return -1;
+	}
+	bat[idx] = cluster;
+
+	return 0;
+}
+
+ssize_t plus_write(struct plus_image *img, size_t size, off_t offset, void *buf)
+{
+	int ret = sanity_checks(__func__, img, size, offset, buf);
+	if (ret) {
+		return ret;
+	}
+	if (img->mode == O_RDONLY) {
+		return -EROFS;
+	}
+
+	u32 cluster = img->clusterSize;
+	size_t got = 0; // How much have we wrote so far
+	int top_level = img->level;
+	int wfd = img->fds[top_level];
+	u32 allocSize = img->allocSize;
+
+	while (got < size) {
+		// Cluster number, and offset within it
+		u32 idx = offset / cluster; // cluster number
+		u32 off = offset % cluster; // offset within the cluster
+		u32 len = MIN(cluster - off, size - got); // how much to write
+
+		int lvl = img->map_lvl[idx];
+		int blk = img->map_blk[idx];
+		if (blk && lvl == img->level) {
+			// top level, existing block, proceed with rewrite
+			printf("  W %5d -> %2d, %5d  off=%5d size=%5d\n",
+					idx, lvl, blk, off, len);
+
+			// offset in the delta file
+			off_t pos = blk * cluster + off;
+			printf("pwrite(%d, %p, %d, %zu) = ",
+					wfd, buf + got, len, pos);
+			ssize_t r = pwrite(wfd, buf + got, len, pos);
+			printf("%zd (%m)\n", r);
+			if (r != len) {
+				fprintf(stderr, "%s: error in pwrite(%d, %p, %d, %zu) = %zd: %m\n",
+						__func__, wfd, buf + got, len, pos, r);
+				if (r < 0) { // pwrite set errno
+					return -errno;
+				} else { // wtf just happened? return EIO
+					return -EIO;
+				}
+			}
+		} else { // Allocate a new cluster
+			void *wbuf = buf + got;
+
+			// 1. Grow image size by one cluster
+			allocSize++;
+			if (ftruncate(wfd, allocSize * cluster)) {
+				fprintf(stderr, "Error in ftruncate: %m\n");
+				ret = -errno;
+				goto err;
+			}
+
+			// 2. Prepare data to be written, note that since
+			// this is a new cluster we need to write a whole one
+			if (len < cluster) {
+				// partial write, need to reconstruct a cluster
+				wbuf = img->buf;
+				if (blk) {
+					// read the old data
+					ret = read_block(img->fds[lvl], wbuf,
+							cluster, blk * cluster);
+					if (ret) {
+						goto err;
+					}
+				} else {
+					// just zero out the data
+					memset(wbuf, 0, cluster);
+				}
+
+				// copy the new data in
+				memcpy(wbuf + off, buf + got, len);
+			}
+
+			// 3. Write the cluster
+			ssize_t r = pwrite(wfd, wbuf, cluster, allocSize * cluster);
+			if (r != cluster) {
+				fprintf(stderr, "Error in pwrite: %m\n");
+				if (r < 0) {
+					ret = -errno;
+				} else {
+					ret = -EIO;
+				}
+				goto err;
+			}
+
+			// FIXME: steps 4 and 5 need to be moved
+			// to after writing all the data.
+
+			// 4. Add a BAT entry to internal table
+			img->map_lvl[idx] = top_level;
+			img->map_blk[idx] = allocSize;
+
+			// 5. Write the new BAT entry
+			ret = write_bat_entry(img, idx, allocSize);
+			if (ret) {
+				goto err;
+			}
+		}
+		got += len;
+		offset += len;
+	}
+
+	// All data written successfully, need to write metadata
+	if (allocSize > img->allocSize) {
+		// Update the size
+		img->allocSize = allocSize;
+	}
+
+	return got;
+err:
+	if (allocSize > img->allocSize) {
+		// ftruncate back to old size
+		if (ftruncate(wfd, img->allocSize * cluster)) {
+			fprintf(stderr, "Error in ftruncate: %m\n");
+			// we already have a (more serious) error,
+			// so don't overwrite its code
+		}
+	}
+
+	return ret;
+}
