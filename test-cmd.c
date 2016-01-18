@@ -50,13 +50,15 @@ int main(int argc, char **argv)
 	off_t offset = 0;
 	char *file = NULL;
 	int lineno = 0;
+	int ret = 0;
 	while (fgets(cmd, sizeof(cmd), f) != NULL) {
 		lineno++;
 		int len = strlen(cmd);
 		if (cmd[len-1] != '\n') {
 			fprintf(stderr, "Bad command on line %d "
 				"(no newline or truncated)\n", lineno);
-			exit(2);
+			ret = 2;
+			goto out;
 		}
 		// remove the newline
 		cmd[len-1] = '\0';
@@ -68,43 +70,51 @@ int main(int argc, char **argv)
 			// FIXME: ignore the mode for now
 			if (num_deltas == 0) {
 				fprintf(stderr, "No deltas added before open\n");
-				exit(2);
+				ret = 2;
+				goto out;
 			}
 			if (img) {
 				fprintf(stderr, "Ploop already opened\n");
-				exit(2);
+				ret = 2;
+				goto out;
 			}
 			img = plus_open(num_deltas, deltas, O_RDWR);
 			if (!img) {
 				fprintf(stderr, "Can't open ploop\n");
-				exit(1);
+				ret = 1;
+				goto out;
 			}
 		} else if (strncmp(cmd, "read ", 5) == 0) {
 			if (!img) {
 				fprintf(stderr, "Ploop not opened\n");
-				exit(2);
+				ret = 2;
+				goto out;
 			}
 			if (sscanf(cmd + 5, "%zd %zu %ms", &offset, &size, &file) != 3) {
 				fprintf(stderr, "Can't parse command %s\n", cmd);
-				exit(2);
+				ret = 2;
+				goto out;
 			}
 
 			int fd = open(file, O_WRONLY|O_CREAT|O_EXCL, 0600);
 			if (fd < 0) {
 				fprintf(stderr, "Can't open %s for writing: %m\n", file);
-				exit(1);
+				ret = 1;
+				goto out;
 			}
 			void *map = mmap(0, size, PROT_WRITE, MAP_SHARED, fd, 0);
 			if (map == MAP_FAILED) {
 				fprintf(stderr, "Can't mmap %s: %m\n", file);
-				exit(1);
+				ret = 1;
+				goto out;
 			}
 			free(file); file = NULL;
 
 			ssize_t ret = plus_read(img, size, offset, map);
 			if (ret != size) {
 				fprintf(stderr, "READ failed: %zd\n", ret);
-				exit(1);
+				ret = 1;
+				goto out;
 			}
 
 			munmap(map, size);
@@ -112,29 +122,34 @@ int main(int argc, char **argv)
 		} else if (strncmp(cmd, "write ", 6) == 0) {
 			if (!img) {
 				fprintf(stderr, "Ploop not opened\n");
-				exit(2);
+				ret = 2;
+				goto out;
 			}
 			if (sscanf(cmd + 6, "%zd %zu %ms", &offset, &size, &file) != 3) {
 				fprintf(stderr, "Can't parse command %s\n", cmd);
-				exit(2);
+				ret = 2;
+				goto out;
 			}
 
 			int fd = open(file, O_RDONLY);
 			if (fd < 0) {
 				fprintf(stderr, "Can't open %s for reading: %m\n", file);
-				exit(1);
+				ret = 1;
+				goto out;
 			}
 			void *map = mmap(0, size, PROT_READ, MAP_SHARED, fd, 0);
 			if (map == MAP_FAILED) {
 				fprintf(stderr, "Can't mmap %s: %m\n", file);
-				exit(1);
+				ret = 1;
+				goto out;
 			}
 			free(file); file = NULL;
 
 			ssize_t ret = plus_write(img, size, offset, map);
 			if (ret != size) {
 				fprintf(stderr, "WRITE failed: %zd\n", ret);
-				exit(1);
+				ret = 1;
+				goto out;
 			}
 
 			munmap(map, size);
@@ -142,15 +157,24 @@ int main(int argc, char **argv)
 		} else if (strncmp(cmd, "close ", 6) == 0) {
 			if (!img) {
 				fprintf(stderr, "Ploop not opened\n");
-				exit(2);
+				ret = 2;
+				goto out;
 			}
 			plus_close(img);
 			img = NULL;
 		} else {
 			fprintf(stderr, "Unknown cmd: %s\n", cmd);
-			exit(2);
+			ret = 2;
+			goto out;
 		}
 	}
 
-	return 0;
+	printf("%s %s: PASS\n", self, cmdfile);
+
+out:
+	if (img)
+		plus_close(img);
+	fclose(f);
+
+	return ret;
 }
