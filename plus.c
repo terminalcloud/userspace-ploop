@@ -65,7 +65,13 @@ static int open_delta(struct plus_image *img, const char *name)
 		goto err;
 	}
 	if (memcmp(pvd->m_Sig, SIGNATURE_STRUCTURED_DISK_V2, sizeof(pvd->m_Sig))) {
-		fprintf(stderr, "Image %s doesn't look like a ploop delta file\n", name);
+		if (memcmp(pvd->m_Sig, SIGNATURE_STRUCTURED_DISK_V1, sizeof(pvd->m_Sig))) {
+			fprintf(stderr, "Image %s is v1 image; not supported\n", name);
+		}
+		else {
+			fprintf(stderr, "Image %s doesn't look like a ploop delta file\n", name);
+		}
+
 		goto err;
 	}
 	// Check it's not in use
