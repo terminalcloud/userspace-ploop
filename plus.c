@@ -20,6 +20,9 @@
 
 #define PAGE_SIZE	4096
 
+// Size of ploop on-disk image header, in 32-bit words
+#define HDR_SIZE_32	16 // sizeof(struct ploop_pvd_header) / sizeof(u32)
+
 static int p_memalign(void **memptr, size_t size)
 {
 	int ret;
@@ -144,9 +147,9 @@ static int open_delta(struct plus_image *img, const char *name)
 			perror("pread");
 			goto err;
 		}
-		// first 16 BAT entries (64 bytes) of the first block
-		// is the header so we need to skip it
-		int i0 = (b == 0) ? 16 : 0;
+		// first few BAT entries of the first block are reserved
+		// for the image header so we need to skip it
+		int i0 = (b == 0) ? HDR_SIZE_32 : 0;
 
 		// fill in the maps
 		u32 *bat = img->buf;
