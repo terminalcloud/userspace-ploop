@@ -21,7 +21,8 @@ static void usage(int x)
 	printf("			   MODE is one of r, rw, w\n");
 	printf("read OFFSET SIZE FILE	-- read a block of data\n");
 	printf("write OFFSET SIZE FILE	-- write a block of data\n");
-	printf("close		-- close the set\n");
+	printf("close			-- close the set\n");
+	printf("# ....			-- a comment (ignored)\n");
 	exit(x);
 }
 
@@ -63,7 +64,18 @@ int main(int argc, char **argv)
 		// remove the newline
 		cmd[len-1] = '\0';
 
+		if (cmd[0] == '#') {
+			// comment
+			printf("%s\n", cmd);
+			continue;
+		}
+		if (cmd[0] == '\0') {
+			// empty line
+			continue;
+		}
+
 		printf("CMD %s\n", cmd);
+
 		if (strncmp(cmd, "add ", 4) == 0) {
 			deltas[num_deltas++] = strdup(cmd + 4);
 		} else if (strncmp(cmd, "open ", 5) == 0) {
