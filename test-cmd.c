@@ -159,7 +159,7 @@ int main(int argc, char **argv)
 
 			munmap(map, size);
 			close(fd);
-		} else if (strncmp(cmd, "close ", 6) == 0) {
+		} else if (strncmp(cmd, "close", 5) == 0) {
 			if (!img) {
 				fprintf(stderr, "Ploop not opened\n");
 				ret = 2;
