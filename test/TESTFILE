@@ -1,0 +1,6 @@
+add ../img/300G/root.hdd
+add ../img/300G/root.hdd.{4f84ab90-a8cd-4b21-992a-f5df6ec2e4ba}
+add ../img/300G/root.hdd.{dd59c0a2-7706-4a01-87fd-f53651d1daab}
+open rw
+read 0 322122547200 out2
+close

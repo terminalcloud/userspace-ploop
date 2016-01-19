@@ -1,0 +1,13 @@
+add ../img/10G/root.hdd
+add ../img/10G/root.hdd.{445daaf0-a0bb-4188-9318-a5763833514e}
+open rw
+#read 0 8192 first-8k
+#write 0 8192 first-8k
+
+# Write between two clusters, existing and non-existing
+#write 10489856 1048576 cluster-8-orig
+#read 11534336 1048576 cluster-11
+
+#write 11010048 4096 cluster-8-orig
+read 10485760 1048576 cluster-10-new
+close

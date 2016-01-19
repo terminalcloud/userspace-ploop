@@ -1,0 +1,5 @@
+add ../img/150G/root.hdd
+add ../img/150G/root.hdd.{7fe91882-f336-4d4f-bafa-6347f264ced9}
+open rw
+#read 0 322122547200 out-150g
+close
