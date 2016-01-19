@@ -173,7 +173,7 @@ static int open_delta(struct plus_image *img, const char *name, int rw)
 						idx, bat[i]);
 				goto err;
 			}
-			if (bat[i] > img->allocSize) {
+			if (bat[i] >= img->allocSize) {
 				fprintf(stderr, "Error: BAT entry points "
 						"past EOF (%u -> %u)\n",
 						idx, bat[i]);
@@ -478,7 +478,7 @@ ssize_t plus_write(struct plus_image *img, size_t size, off_t offset, void *buf)
 			void *wbuf = buf + got;
 
 			// 1. Grow image size by one cluster
-			allocSize++;
+			printf("  G %5d\n", allocSize);
 			if (ftruncate(wfd, allocSize * cluster)) {
 				fprintf(stderr, "Error in ftruncate: %m\n");
 				ret = -errno;
@@ -507,6 +507,8 @@ ssize_t plus_write(struct plus_image *img, size_t size, off_t offset, void *buf)
 			}
 
 			// 3. Write the cluster
+			printf("  W %5d -> %2d, %5d  off=%5d size=%5d\n",
+					idx, top_level, allocSize, allocSize*cluster, cluster);
 			ssize_t r = pwrite(wfd, wbuf, cluster, allocSize * cluster);
 			if (r != cluster) {
 				fprintf(stderr, "Error in pwrite: %m\n");
@@ -530,6 +532,10 @@ ssize_t plus_write(struct plus_image *img, size_t size, off_t offset, void *buf)
 			if (ret) {
 				goto err;
 			}
+
+			// 6. Update allocSize
+			allocSize++;
+
 		}
 		got += len;
 		offset += len;
@@ -544,6 +550,8 @@ ssize_t plus_write(struct plus_image *img, size_t size, off_t offset, void *buf)
 	return got;
 err:
 	if (allocSize > img->allocSize) {
+		// FIXME how to undo the mapping?
+
 		// ftruncate back to old size
 		if (ftruncate(wfd, img->allocSize * cluster)) {
 			fprintf(stderr, "Error in ftruncate: %m\n");
